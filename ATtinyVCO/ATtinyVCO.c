@@ -7,6 +7,7 @@
  * PB1: PWM out
  * PB2: check pin
  *
+ * 2016.01.18 整数演算に変更
  * 2015.11.27 PWM出力を6bit精度に変更
  *
  */ 
@@ -18,10 +19,7 @@
 #include <util/delay.h>
 #include <stdint.h>
 
-#define SAMPLE_CLOCK	(8000.0f)
-#define POW_2_16		(65536ul)
-
-#define FREQUENCY_MAX	(2000.0f)
+#define SAMPLE_CLOCK	(8000)
 
 // Saw dawn wave up table
 const PROGMEM uint8_t sawUpTable[] = {
@@ -33,18 +31,17 @@ const PROGMEM uint8_t sawUpTable[] = {
 
 volatile uint16_t phaseAccumlator;
 volatile uint16_t tuningWord;
-volatile uint8_t amp;
 
 //=============================================================================
 // 波形生成
 //
 // ----------------------------------------------------------------------------
 // setDDSParameter()
-// parameter: frequency: 生成する周波数
+// parameter: frequency: 生成する周波数の10倍
 //
-void setDDSParameter(float frequency)
+void setDDSParameter(uint16_t frequency)
 {
-	tuningWord = (int16_t)(frequency * POW_2_16 / SAMPLE_CLOCK);
+	tuningWord = (int16_t)(((uint32_t)frequency << 16) / SAMPLE_CLOCK / 10);
 }
 
 // ----------------------------------------------------------------------------
@@ -85,16 +82,7 @@ void setPWMDuty(uint8_t value)
 uint16_t getCV() {
 	// ADC_CVの値を取得
 	 return 901;	// 440Hz
-	//return 4095;	// 2000Hz
-}
-
-// ----------------------------------------------------------------------------
-// getGate()
-// return: Gate値(0..255)
-//
-uint8_t getGate() {
-	// ADC_GATEの値を取得
-	return 255;
+	//return 4096;	// 2000Hz
 }
 
 //=============================================================================
@@ -153,8 +141,7 @@ int main()
 		PORTB |= (1 << PORTB2);
 		
 		cv = getCV();
-		setDDSParameter(cv * FREQUENCY_MAX / 4096.0f);
-		amp = getGate();
+		setDDSParameter(cv * 10);
 		v = generateSawWave();
 		setPWMDuty(v);
 		
